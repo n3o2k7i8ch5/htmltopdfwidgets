@@ -1,6 +1,6 @@
 name: html_pdf_widgets
 description: Convert html text to pdf widgets.
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/n3o2k7i8ch5/htmltopdfwidgets
 
 environment:
