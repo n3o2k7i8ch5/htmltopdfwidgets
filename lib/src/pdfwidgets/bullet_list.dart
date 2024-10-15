@@ -1,9 +1,8 @@
-import '../../htmltopdfwidgets.dart';
+import '../../html_pdf_widgets.dart';
 
 class BulletListItemWidget extends StatelessWidget {
-  
   // Bullet list item widget with a bullet icon and content.
-  
+
   final Widget child;
   final HtmlTagStyle customStyles;
   final bool nestedList;
@@ -24,7 +23,7 @@ class BulletListItemWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if(withIndicator)
+          if (withIndicator)
             _BulletedListIndicator(style: customStyles, nestedList: nestedList)
           else
             SizedBox(width: customStyles.listItemIndicatorWidth),

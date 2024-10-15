@@ -1,4 +1,4 @@
-import '../../htmltopdfwidgets.dart';
+import '../../html_pdf_widgets.dart';
 
 Widget buildQuoteWidget(Widget child, {required HtmlTagStyle customStyles}) {
   return Container(

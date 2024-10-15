@@ -1,8 +1,6 @@
-import '../../htmltopdfwidgets.dart';
-
+import '../../html_pdf_widgets.dart';
 
 class NumberListItemWidget extends StatelessWidget {
-
   final Widget child;
   final int index;
   final HtmlTagStyle customStyles;
@@ -25,7 +23,7 @@ class NumberListItemWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if(withIndicator)
+          if (withIndicator)
             _NumberListIndicator(
               style: customStyles,
               index: index,

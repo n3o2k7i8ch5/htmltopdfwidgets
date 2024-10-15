@@ -1,7 +1,9 @@
-# HTMLtoPDFWidgets
+# html_pdf_widgets
 
 
-HTMLtoPDFWidgets is a Flutter package that allows you to convert HTML content into PDF documents with support for various Rich Text Editor formats. With this package, you can effortlessly generate PDF files that include elements such as lists, paragraphs, images, quotes, and headings.
+html_pdf_widgets is a Flutter package that allows you to convert HTML content into PDF documents with support for various Rich Text Editor formats. With this package, you can effortlessly generate PDF files that include elements such as lists, paragraphs, images, quotes, headings, and many more.
+
+The package was built upon the [htmltopdfwidgets](https://pub.dev/packages/htmltopdfwidgets) package by simplifying the code, adding more features, and fixing bugs.
 
 ## Features
 
@@ -16,17 +18,17 @@ Add the following dependency to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  htmltopdfwidgets: ^0.0.9+1
+  html_pdf_widgets: <latest version>
 ```
 
 ## Usage
 
-To use HTMLtoPDFWidgets in your Flutter project, follow these simple steps:
+To use html_pdf_widgets in your Flutter project, follow these simple steps:
 
 1. Import the package:
 
 ```dart
-import 'package:htmltopdfwidgets/htmltopdfwidgets.dart';
+import 'package:html_pdf_widgets/html_pdf_widgets.dart';
 ```
 
 2. Convert HTML to PDF:
@@ -68,14 +70,7 @@ This package is licensed under the [MIT License](https://github.com/alihassan143
 
 ## Contributing
 
-Contributions are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [GitHub repository](https://github.com/alihassan143/htmltopdfwidgets).
-
-## Acknowledgments
-
-Special thanks to the Appflowy editor:
-I use their Html To Document plugin as reference
-
-- Appflowy ([@AppFlowy-IO](https://github.com/AppFlowy-IO/appflowy-editor))
+Contributions are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [GitHub repository](https://github.com/n3o2k7i8ch5/htmltopdfwidgets).
 
 
 

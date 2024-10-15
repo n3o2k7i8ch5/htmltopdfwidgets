@@ -3,7 +3,6 @@
 /// partial rendering types and global rendering types.
 
 class BuiltInAttributeKey {
-
   // Partial rendering types
   static String bold = 'bold';
   static String italic = 'italic';

@@ -92,6 +92,6 @@ bool isRgba(String color) {
 bool isHex(String color) {
   // Regular expression to check if the color is in hex format (#RRGGBB or #RGB)
   final hexRegex =
-  RegExp(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", caseSensitive: false);
+      RegExp(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", caseSensitive: false);
   return hexRegex.hasMatch(color);
 }

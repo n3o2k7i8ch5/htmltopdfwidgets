@@ -6,7 +6,7 @@ environment:
   sdk: ">=3.0.3 <4.0.0"
 
 dependencies:
-  htmltopdfwidgets:
+  html_pdf_widgets:
     path: ../
 dependency_overrides:
   archive: 3.6.1

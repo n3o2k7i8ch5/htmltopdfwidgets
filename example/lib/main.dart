@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:htmltopdfwidgets/htmltopdfwidgets.dart';
+import 'package:html_pdf_widgets/html_pdf_widgets.dart';
 
 void main() {
   createDocument();
