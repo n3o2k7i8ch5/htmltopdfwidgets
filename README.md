@@ -48,21 +48,22 @@ final htmlContent = '''
 
   var filePath = 'test/example.pdf';
   var file = File(filePath);
-  final newpdf = Document();
+  final document = Document();
   List<Widget> widgets = await HTMLToPdf().convert(htmlContent);
-  newpdf.addPage(MultiPage(
+  document.addPage(
+    MultiPage(
       maxPages: 200,
-      build: (context) {
-        return widgets;
-      }));
-  await file.writeAsBytes(await newpdf.save());
+      build: (context) => widgets
+    )
+  );
+  await file.writeAsBytes(await document.save());
 ```
 
 For more details on usage and available options, please refer to the [API documentation](https://pub.dev/documentation/htmltopdfwidgets/latest).
 
 ## Example
 
-You can find a complete example in the [example](https://github.com/alihassan143/htmltopdfwidgets/tree/main/example) directory of this repository.
+You can find a complete example in the [example](https://github.com/n3o2k7i8ch5/htmltopdfwidgets/tree/main/example) directory of this repository.
 
 ## License
 
@@ -73,12 +74,8 @@ This package is licensed under the [MIT License](https://github.com/alihassan143
 Contributions are welcome! If you encounter any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request on the [GitHub repository](https://github.com/n3o2k7i8ch5/htmltopdfwidgets).
 
 
-
-Happy PDF generation with HTMLtoPDFWidgets in your Flutter apps!
-
 ## Help Maintenance
 
-I've been maintaining quite many repos these days and burning out slowly. If you could help me cheer up, buying me a cup of coffee will make my life really happy and get much energy out of it.
 
-<a href="https://www.buymeacoffee.com/alihassan13" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/purple_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
+<a href="https://buymeacoffee.com/n3o2k7i8ch5" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/purple_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
 
