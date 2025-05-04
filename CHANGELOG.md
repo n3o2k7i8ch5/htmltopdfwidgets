@@ -1,6 +1,9 @@
+## 0.0.3
+* Updated package versions.
+
 ## 0.0.2
 * Fixed readme file.
-* Fixed example pdf generation.
+* Fixed example PDF generation.
 
 ## 0.0.1
-* Describe initial release.
+* Initial release.
