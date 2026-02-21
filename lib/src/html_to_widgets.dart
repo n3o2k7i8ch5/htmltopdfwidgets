@@ -271,7 +271,7 @@ class WidgetsHTMLDecoder {
 
     return Table(
       border: TableBorder.all(color: PdfColors.black),
-      defaultColumnWidth: const IntrinsicColumnWidth(flex: 1),
+      defaultColumnWidth: const IntrinsicColumnWidth(),
       children: tableRows,
     );
   }
