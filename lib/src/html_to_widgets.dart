@@ -143,6 +143,15 @@ class WidgetsHTMLDecoder {
       case HTMLTags.image:
         return [await _parseImageElement(element)];
 
+      /// Handle horizontal rule
+      case HTMLTags.divider:
+        return [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Divider(color: PdfColors.grey400),
+          )
+        ];
+
       /// if no special element is found it treated as simple paragraph
       default: // E.g. HTMLTags.paragraph
         return [await _parseParagraphElement(element, baseTextStyle)];
@@ -181,8 +190,8 @@ class WidgetsHTMLDecoder {
         decoration.add(TextDecoration.underline);
         break;
 
-      /// Handle <del> element
-      case HTMLTags.del:
+      /// Handle <del> and <s> elements
+      case HTMLTags.del || HTMLTags.strikethrough:
         decoration.add(TextDecoration.lineThrough);
         break;
 
@@ -226,14 +235,20 @@ class WidgetsHTMLDecoder {
   Future<Widget> _parseTable(dom.Element element, TextStyle baseTextStyle) async {
     final List<TableRow> tableRows = [];
 
-    dom.Element tbody = element.children.first;
+    // Find <tbody> if present, otherwise use the table element directly.
+    final tbody = element.children
+        .where((e) => e.localName == 'tbody')
+        .firstOrNull ?? element;
 
-    for (final child in tbody.children)
-      tableRows.add(await _parseTableRow(child, baseTextStyle));
+    for (final child in tbody.children) {
+      if (child.localName == HTMLTags.tableRow) {
+        tableRows.add(await _parseTableRow(child, baseTextStyle));
+      }
+    }
 
     return Table(
       border: TableBorder.all(color: PdfColors.black),
-      children: tableRows
+      children: tableRows,
     );
   }
 
@@ -386,7 +401,7 @@ class WidgetsHTMLDecoder {
 
     final result = <Widget>[];
 
-    if(customStyles.listTopPadding > 0 && hasPreviousElement(element) || nestedList)
+    if (customStyles.listTopPadding > 0 && (hasPreviousElement(element) || nestedList))
       result.add(SizedBox(height: customStyles.listTopPadding));
 
     // Parse each list item and add it to the result
@@ -401,12 +416,12 @@ class WidgetsHTMLDecoder {
       );
 
       // Add vertical space between list items
-      if(i < element.children.length - 1 && customStyles.listItemVerticalSeparatorSize > 0)
+      if (i < element.children.length - 1 && customStyles.listItemVerticalSeparatorSize > 0)
         result.add(SizedBox(height: customStyles.listItemVerticalSeparatorSize));
 
     }
 
-    if (customStyles.listTopPadding > 0 && hasNextElement(element))
+    if (customStyles.listBottomPadding > 0 && hasNextElement(element))
       result.add(SizedBox(height: customStyles.listBottomPadding));
 
     return result;
@@ -434,7 +449,7 @@ class WidgetsHTMLDecoder {
 
     final result = <Widget>[];
 
-    if(customStyles.listTopPadding > 0 && hasPreviousElement(element) || nestedList)
+    if (customStyles.listTopPadding > 0 && (hasPreviousElement(element) || nestedList))
       result.add(SizedBox(height: customStyles.listTopPadding));
 
     // Parse each list item and add it to the result
@@ -453,12 +468,12 @@ class WidgetsHTMLDecoder {
       );
 
       // Add vertical space between list items
-      if(i < element.children.length - 1 && customStyles.listItemVerticalSeparatorSize > 0)
+      if (i < element.children.length - 1 && customStyles.listItemVerticalSeparatorSize > 0)
         result.add(SizedBox(height: customStyles.listItemVerticalSeparatorSize));
 
     }
 
-    if (customStyles.listTopPadding > 0 && hasNextElement(element))
+    if (customStyles.listBottomPadding > 0 && hasNextElement(element))
       result.add(SizedBox(height: customStyles.listBottomPadding));
 
     return result;
@@ -594,7 +609,7 @@ class WidgetsHTMLDecoder {
         );
       }
 
-      final netImage = await _saveImage(src);
+      final netImage = await _fetchImageBytes(src);
 
       // Handle svg image provided as a web URL
       if (src.endsWith(".svg")) {
@@ -615,18 +630,10 @@ class WidgetsHTMLDecoder {
     }
   }
 
-  /// Function to download and save an image from a URL
-  Future<Uint8List> _saveImage(String url) async {
-    try {
-      /// Download image
-      final Response response = await get(Uri.parse(url));
-
-      /// Get temporary directory
-
-      return response.bodyBytes;
-    } catch (e) {
-      throw Exception(e);
-    }
+  /// Downloads image bytes from a URL.
+  Future<Uint8List> _fetchImageBytes(String url) async {
+    final Response response = await get(Uri.parse(url));
+    return response.bodyBytes;
   }
 
   Future<List<Object>> _parseDeltaElement(dom.Element element, TextStyle baseTextStyle) async {
@@ -747,13 +754,18 @@ class WidgetsHTMLDecoder {
             ? ColorExtension.hexToPdfColor(backgroundColorStr)
             : ColorExtension.tryFromRgbaString(backgroundColorStr);
     if (backgroundColor != null) {
-      style = style.copyWith(color: backgroundColor);
+      style = style.copyWith(
+        background: BoxDecoration(color: backgroundColor),
+      );
     }
 
-    ///apply background color on text
-    final colorstr = cssMap["color"];
-    final color =
-        colorstr == null ? null : ColorExtension.tryFromRgbaString(colorstr);
+    ///apply text color
+    final colorStr = cssMap["color"];
+    final color = colorStr == null
+        ? null
+        : isHex(colorStr)
+            ? ColorExtension.hexToPdfColor(colorStr)
+            : ColorExtension.tryFromRgbaString(colorStr);
     if (color != null) {
       style = style.copyWith(color: color);
     }

@@ -35,29 +35,17 @@ class HtmlTagStyle {
   final TextStyle? listIndexStyle;
   //href link style that will merge with default style
   final TextStyle? linkStyle;
-  //quote bar style that will merge with default style
   final PdfColor? quoteBarColor;
-  //bullet list style that will merge with default style
   final double listTopPadding;
-  //bullet list style that will merge with default style
   final double listBottomPadding;
-  //bullet list style that will merge with default style
   final PdfColor? bulletListIconColor;
-  //bullet list style that will merge with default style
   final double bulletListDotSize;
-  //bullet list style that will merge with default style
   final double bulletListIconSize;
-  //bullet list style that will merge with default style
   final EdgeInsets listItemIndicatorPadding;
-  //bullet list style that will merge with default style
   final double listItemIndicatorWidth;
-  //bullet list style that will merge with default style
   final double listItemVerticalSeparatorSize;
-  //bullet list style that will merge with default style
   final double headingTopSpacing;
-  //bullet list style that will merge with default style
   final double headingBottomSpacing;
-  //bullet list style that will merge with default style
   final EdgeInsets tablePadding;
 
   const HtmlTagStyle({

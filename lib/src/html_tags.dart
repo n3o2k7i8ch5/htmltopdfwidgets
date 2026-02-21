@@ -58,6 +58,7 @@ class HTMLTags {
     HTMLTags.h6,
     HTMLTags.table,
     HTMLTags.div,
+    HTMLTags.divider,
     HTMLTags.unorderedList,
     HTMLTags.orderedList,
     HTMLTags.listItem,
@@ -69,5 +70,3 @@ class HTMLTags {
     HTMLTags.label,
   ];
 }
-
-enum AttributeType { table, tablerow, none }
