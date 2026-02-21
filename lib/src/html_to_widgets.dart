@@ -589,7 +589,10 @@ class WidgetsHTMLDecoder {
 
   /// Function to parse a paragraph element and return a widget
   Future<Widget> _parseParagraphElement(dom.Element element, TextStyle baseTextStyle) async {
-    return Wrap(children: await _parseComplexElement(element, baseTextStyle));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: await _parseComplexElement(element, baseTextStyle),
+    );
   }
 
   /// Function to parse an image element and return an Image widget
