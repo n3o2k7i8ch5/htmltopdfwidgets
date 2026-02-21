@@ -234,6 +234,7 @@ class WidgetsHTMLDecoder {
   ///convert table tag into the table pdf widget
   Future<Widget> _parseTable(dom.Element element, TextStyle baseTextStyle) async {
     final List<TableRow> tableRows = [];
+    final cellPadding = double.tryParse(element.attributes['cellpadding'] ?? '');
 
     // Find <tbody> if present, otherwise use the table element directly.
     final tbody = element.children
@@ -242,21 +243,22 @@ class WidgetsHTMLDecoder {
 
     for (final child in tbody.children) {
       if (child.localName == HTMLTags.tableRow) {
-        tableRows.add(await _parseTableRow(child, baseTextStyle));
+        tableRows.add(await _parseTableRow(child, baseTextStyle, cellPadding: cellPadding));
       }
     }
 
     return Table(
       border: TableBorder.all(color: PdfColors.black),
+      defaultColumnWidth: const IntrinsicColumnWidth(flex: 1),
       children: tableRows,
     );
   }
 
-  Future<TableRow> _parseTableRow(dom.Element element, TextStyle baseTextStyle) async {
+  Future<TableRow> _parseTableRow(dom.Element element, TextStyle baseTextStyle, {double? cellPadding}) async {
     final List<Widget> tableDataList = [];
 
     for (final data in element.children)
-      tableDataList.add(await _parseTableData(data, baseTextStyle));
+      tableDataList.add(await _parseTableData(data, baseTextStyle, cellPadding: cellPadding));
 
     return TableRow(
       decoration: BoxDecoration(border: Border.all(color: PdfColors.black)),
@@ -265,7 +267,7 @@ class WidgetsHTMLDecoder {
   }
 
   ///parse html data and convert to table row
-  Future<Widget> _parseTableData(dom.Element element, TextStyle baseTextStyle) async {
+  Future<Widget> _parseTableData(dom.Element element, TextStyle baseTextStyle, {double? cellPadding}) async {
 
     List<Widget> children = [];
     for (var child in element.nodes)
@@ -278,36 +280,40 @@ class WidgetsHTMLDecoder {
         children: children
     );
 
-    if (!element.attributes.containsKey('style')) return result;
+    EdgeInsets basePadding = cellPadding != null
+        ? EdgeInsets.all(cellPadding)
+        : customStyles.tablePadding;
 
     double? paddingLeft;
     double? paddingRight;
     double? paddingTop;
     double? paddingBottom;
 
-    List<String> styleElements = element.attributes['style']!.split(';');
+    if (element.attributes.containsKey('style')) {
+      List<String> styleElements = element.attributes['style']!.split(';');
 
-    for (String styleElement in styleElements) {
-      List<String> styleElementParts = styleElement.split(':');
+      for (String styleElement in styleElements) {
+        List<String> styleElementParts = styleElement.split(':');
 
-      if (styleElementParts.length != 2) continue;
+        if (styleElementParts.length != 2) continue;
 
-      String styleName = styleElementParts[0].trim();
-      String styleValue = styleElementParts[1].trim();
+        String styleName = styleElementParts[0].trim();
+        String styleValue = styleElementParts[1].trim();
 
-      // Replace 'px' with '' is inacurate - should consider other units like 'pt', 'em', 'rem', '%', etc.
-      if (styleName == 'padding-left')
-        paddingLeft = double.tryParse(styleValue.replaceAll('px', ''));
-      else if (styleName == 'padding-right')
-        paddingRight = double.tryParse(styleValue.replaceAll('px', ''));
-      else if (styleName == 'padding-top')
-        paddingTop = double.tryParse(styleValue.replaceAll('px', ''));
-      else if (styleName == 'padding-bottom')
-        paddingBottom = double.tryParse(styleValue.replaceAll('px', ''));
+        // Replace 'px' with '' is inacurate - should consider other units like 'pt', 'em', 'rem', '%', etc.
+        if (styleName == 'padding-left')
+          paddingLeft = double.tryParse(styleValue.replaceAll('px', ''));
+        else if (styleName == 'padding-right')
+          paddingRight = double.tryParse(styleValue.replaceAll('px', ''));
+        else if (styleName == 'padding-top')
+          paddingTop = double.tryParse(styleValue.replaceAll('px', ''));
+        else if (styleName == 'padding-bottom')
+          paddingBottom = double.tryParse(styleValue.replaceAll('px', ''));
+      }
     }
 
     return Padding(
-      padding: customStyles.tablePadding.copyWith(
+      padding: basePadding.copyWith(
         left: paddingLeft,
         right: paddingRight,
         top: paddingTop,

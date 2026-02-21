@@ -8,6 +8,7 @@ Widget buildQuoteWidget(Widget child, {required HtmlTagStyle customStyles}) {
     padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
     decoration: BoxDecoration(
       color: PdfColors.grey100,
+      borderRadius: BorderRadius.all(Radius.circular(customStyles.borderRadius)),
       border: Border(
         left: BorderSide(
           color: quoteColor,
