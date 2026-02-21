@@ -124,7 +124,12 @@ class WidgetsHTMLDecoder {
 
       /// Handle table
       case HTMLTags.table:
-        return [await _parseTable(element, baseTextStyle)];
+        return [
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: customStyles.blockSpacing),
+            child: await _parseTable(element, baseTextStyle),
+          )
+        ];
 
       ///if simple list is found it will handle accordingly
       case HTMLTags.listItem:
@@ -147,7 +152,7 @@ class WidgetsHTMLDecoder {
       case HTMLTags.divider:
         return [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.symmetric(vertical: customStyles.blockSpacing),
             child: Divider(color: PdfColors.grey400),
           )
         ];
@@ -308,7 +313,7 @@ class WidgetsHTMLDecoder {
     }
 
     Widget result = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: children
     );
 
@@ -383,7 +388,7 @@ class WidgetsHTMLDecoder {
             top: isPreviousHeader ? 0 : customStyles.headingTopSpacing,
             bottom: isNextHeader ? 0 : customStyles.headingBottomSpacing),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: innerWidgets,
         )
     );
@@ -393,7 +398,7 @@ class WidgetsHTMLDecoder {
   Future<Widget> _parseBlockQuoteElement(dom.Element element, TextStyle baseTextStyle) async {
 
     final child = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: await _parseComplexElement(element, baseTextStyle));
 
     return buildQuoteWidget(child, customStyles: customStyles);
@@ -511,7 +516,7 @@ class WidgetsHTMLDecoder {
     required bool nestedList,
   }) async {
     final child = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: await _parseComplexElement(element, baseTextStyle)
     );
 
@@ -585,7 +590,7 @@ class WidgetsHTMLDecoder {
   /// Function to parse a paragraph element and return a widget
   Future<Widget> _parseParagraphElement(dom.Element element, TextStyle baseTextStyle) async {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: await _parseComplexElement(element, baseTextStyle),
     );
   }

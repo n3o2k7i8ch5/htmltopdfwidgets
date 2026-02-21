@@ -4,7 +4,7 @@ import '../utils/app_assets.dart';
 Widget buildQuoteWidget(Widget child, {required HtmlTagStyle customStyles}) {
   final quoteColor = customStyles.quoteBarColor ?? PdfColors.grey600;
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+    padding: EdgeInsets.symmetric(vertical: customStyles.blockSpacing),
     child: ClipRRect(
       horizontalRadius: customStyles.borderRadius,
       verticalRadius: customStyles.borderRadius,

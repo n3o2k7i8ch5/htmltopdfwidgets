@@ -48,6 +48,7 @@ class HtmlTagStyle {
   final double headingBottomSpacing;
   final EdgeInsets tablePadding;
   final double borderRadius;
+  final double blockSpacing;
 
   const HtmlTagStyle({
     this.boldStyle,
@@ -79,5 +80,6 @@ class HtmlTagStyle {
     this.headingBottomSpacing = 18.0,
     this.tablePadding = const EdgeInsets.all(6.0),
     this.borderRadius = 8.0,
+    this.blockSpacing = 8.0,
   });
 }
