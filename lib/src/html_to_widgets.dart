@@ -193,11 +193,18 @@ class WidgetsHTMLDecoder {
       /// Handle <del> and <s> elements
       case HTMLTags.del || HTMLTags.strikethrough:
         decoration.add(TextDecoration.lineThrough);
+        style = style.merge(customStyles.strikeThrough);
         break;
 
-      /// Handle <span> and <mark> element
-      case HTMLTags.span || HTMLTags.mark:
-        // Nothing to do here
+      /// Handle <span> element
+      case HTMLTags.span:
+        break;
+
+      /// Handle <mark> element — yellow highlight
+      case HTMLTags.mark:
+        style = style.copyWith(
+          background: const BoxDecoration(color: PdfColors.yellow),
+        );
         break;
 
       /// Handle <a> element
@@ -228,7 +235,16 @@ class WidgetsHTMLDecoder {
     var (parentAlign, parentStyle) = await _parseFormattingElement(element.parent!, baseTextStyle);
 
     ///will combine style get from the children
-    return (align ??= parentAlign, parentStyle.merge(style));
+    var mergedStyle = parentStyle.merge(style);
+
+    // Apply boldItalicStyle when both bold and italic are active
+    if (customStyles.boldItalicStyle != null &&
+        mergedStyle.fontWeight == FontWeight.bold &&
+        mergedStyle.fontStyle == FontStyle.italic) {
+      mergedStyle = mergedStyle.merge(customStyles.boldItalicStyle);
+    }
+
+    return (align ??= parentAlign, mergedStyle);
   }
 
   ///convert table tag into the table pdf widget
@@ -236,14 +252,20 @@ class WidgetsHTMLDecoder {
     final List<TableRow> tableRows = [];
     final cellPadding = double.tryParse(element.attributes['cellpadding'] ?? '');
 
-    // Find <tbody> if present, otherwise use the table element directly.
-    final tbody = element.children
-        .where((e) => e.localName == 'tbody')
-        .firstOrNull ?? element;
+    // Collect <tr> rows from all table sections (thead, tbody, tfoot)
+    // in document order, or directly from the table if no sections exist.
+    const sectionTags = {'thead', 'tbody', 'tfoot'};
+    final hasSections = element.children.any((e) => sectionTags.contains(e.localName));
 
-    for (final child in tbody.children) {
-      if (child.localName == HTMLTags.tableRow) {
-        tableRows.add(await _parseTableRow(child, baseTextStyle, cellPadding: cellPadding));
+    final rowContainers = hasSections
+        ? element.children.where((e) => sectionTags.contains(e.localName))
+        : [element];
+
+    for (final container in rowContainers) {
+      for (final child in container.children) {
+        if (child.localName == HTMLTags.tableRow) {
+          tableRows.add(await _parseTableRow(child, baseTextStyle, cellPadding: cellPadding));
+        }
       }
     }
 
@@ -266,14 +288,24 @@ class WidgetsHTMLDecoder {
     );
   }
 
-  ///parse html data and convert to table row
+  ///parse html data and convert to table cell
   Future<Widget> _parseTableData(dom.Element element, TextStyle baseTextStyle, {double? cellPadding}) async {
+    // Apply bold style for <th> header cells
+    final isHeader = element.localName == HTMLTags.tableheader;
+    final cellBaseStyle = isHeader
+        ? baseTextStyle.copyWith(fontWeight: FontWeight.bold)
+        : baseTextStyle;
 
     List<Widget> children = [];
-    for (var child in element.nodes)
-      if (child is dom.Element) children.addAll(await _parseSpecialElements(child, baseTextStyle));
-      else if (child is dom.Text) children.add(Text(child.text, style: customStyles.paragraphStyle??baseTextStyle));
-      else children.add(Text(child.toString(), style: customStyles.paragraphStyle??baseTextStyle));
+    for (var child in element.nodes) {
+      if (child is dom.Element) {
+        children.addAll(await _parseSpecialElements(child, cellBaseStyle));
+      } else if (child is dom.Text) {
+        children.add(Text(child.text, style: customStyles.paragraphStyle ?? cellBaseStyle));
+      } else {
+        children.add(Text(child.toString(), style: customStyles.paragraphStyle ?? cellBaseStyle));
+      }
+    }
 
     Widget result = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,19 +357,8 @@ class WidgetsHTMLDecoder {
   }
 
   Future<Widget> _parseHeadingElement(dom.Element element, TextStyle baseTextStyle, {required int level}) async {
-    TextAlign? textAlign;
-    final delta = <TextSpan>[];
-    final children = element.nodes.toList();
-    for (final child in children) {
-      if (child is dom.Element) {
-        TextStyle style;
-        (textAlign, style) =
-            await _parseFormattingElement(child, baseTextStyle);
-        delta.add(TextSpan(text: child.text, style: style));
-      } else {
-        delta.add(TextSpan(text: child.text, style: baseTextStyle));
-      }
-    }
+    final headingStyle = level.getHeadingStyle(customStyles) ?? baseTextStyle;
+    final innerWidgets = await _parseComplexElement(element, headingStyle);
 
     bool isPreviousHeader = isPreviousElement(element, [
       HTMLTags.h1,
@@ -357,22 +378,14 @@ class WidgetsHTMLDecoder {
       HTMLTags.h6
     ]);
 
-    Widget widget = SizedBox(
-      width: double.infinity,
-      child: RichText(
-        textAlign: textAlign,
-        text: TextSpan(
-          children: delta,
-          style: level.getHeadingStyle(customStyles)
-        )
-      )
-    );
-
     return Padding(
         padding: EdgeInsets.only(
             top: isPreviousHeader ? 0 : customStyles.headingTopSpacing,
             bottom: isNextHeader ? 0 : customStyles.headingBottomSpacing),
-        child: widget
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: innerWidgets,
+        )
     );
   }
 
@@ -439,6 +452,9 @@ class WidgetsHTMLDecoder {
     // Check if the list is nested within another list
     bool nestedList = hasInParent(element, [HTMLTags.listItem]);
 
+    // Read the start attribute for ordered list numbering
+    final int startIndex = int.tryParse(element.attributes['start'] ?? '') ?? 1;
+
     // If the list has no children, return a single number widget
     if (element.children.isEmpty)
       return [
@@ -447,7 +463,7 @@ class WidgetsHTMLDecoder {
             element.text,
             style: customStyles.paragraphStyle,
           ),
-          index: 1,
+          index: startIndex,
           customStyles: customStyles,
           baseTextStyle: baseTextStyle,
         )
@@ -468,7 +484,7 @@ class WidgetsHTMLDecoder {
           childElement,
           baseTextStyle,
           listTag: HTMLTags.orderedList,
-          index: i + 1,
+          index: startIndex + i,
           nestedList: nestedList,
         )
       );
@@ -580,66 +596,90 @@ class WidgetsHTMLDecoder {
   Future<Widget> _parseImageElement(dom.Element element) async {
     final src = element.attributes["src"];
     try {
-      if (src == null) return Text("");
+      if (src == null || src.isEmpty) return SizedBox.shrink();
+
+      // Read optional width/height attributes
+      final double? width = double.tryParse(element.attributes["width"] ?? '');
+      final double? height = double.tryParse(element.attributes["height"] ?? '');
+
+      Widget _applySize(Widget image) {
+        if (width != null || height != null) {
+          return SizedBox(width: width, height: height, child: image);
+        }
+        return image;
+      }
 
       // Handle base64 image provided as string
       if (src.startsWith("data:image/")) {
-        // Separate from the base64 metadata, if there is any
-        final List<String> components = src.split(",");
+        final commaIndex = src.indexOf(',');
+        if (commaIndex < 0) return SizedBox.shrink();
 
-        if (components.length > 1) {
-          var base64Encoded = components.last;
-          Uint8List listData = base64Decode(base64Encoded);
-          return Image(
-            MemoryImage(listData),
+        final mimeHeader = src.substring(0, commaIndex).toLowerCase();
+        final base64Encoded = src.substring(commaIndex + 1);
+        Uint8List listData = base64Decode(base64Encoded);
+
+        if (mimeHeader.contains('svg')) {
+          return _applySize(SvgImage(
+            svg: utf8.decode(listData),
             alignment: customStyles.imageAlignment,
-          );
+          ));
         }
-        return Text("");
+
+        return _applySize(Image(
+          MemoryImage(listData),
+          alignment: customStyles.imageAlignment,
+        ));
       }
 
       // Handle svg image provided as an asset
       if (src.startsWith("asset:") && src.endsWith(".svg")) {
         String? svgData = await readStringFromAssets(src.substring("asset:".length));
-        if(svgData == null) return Text("");
-        return SvgImage(
+        if (svgData == null) return SizedBox.shrink();
+        return _applySize(SvgImage(
             svg: svgData,
             alignment: customStyles.imageAlignment
-        );
-        
+        ));
+
       // Handle raster (pixel) image provided as an asset
       } else if (src.startsWith("asset:")) {
-        return Image(
+        return _applySize(Image(
             await imageFromAssetBundle(src.substring("asset:".length)),
             alignment: customStyles.imageAlignment
-        );
+        ));
       }
 
-      final netImage = await _fetchImageBytes(src);
+      final response = await _fetchImage(src);
 
-      // Handle svg image provided as a web URL
-      if (src.endsWith(".svg")) {
-        return SvgImage(
-            svg: utf8.decode(netImage),
+      // Detect SVG by content-type header or URL path (ignoring query params)
+      final contentType = response.headers['content-type'] ?? '';
+      final urlPath = Uri.tryParse(src)?.path ?? src;
+      final isSvg = contentType.contains('svg') || urlPath.endsWith('.svg');
+
+      if (isSvg) {
+        return _applySize(SvgImage(
+            svg: utf8.decode(response.bodyBytes),
             alignment: customStyles.imageAlignment
-        );
+        ));
       }
 
-      // Handle raster (pixel) image provided as a web URL
-      return Image(
-          MemoryImage(netImage),
+      return _applySize(Image(
+          MemoryImage(response.bodyBytes),
           alignment: customStyles.imageAlignment
-      );
+      ));
 
     } catch (e) {
-      return Text("");
+      return SizedBox.shrink();
     }
   }
 
-  /// Downloads image bytes from a URL.
-  Future<Uint8List> _fetchImageBytes(String url) async {
-    final Response response = await get(Uri.parse(url));
-    return response.bodyBytes;
+  /// Downloads an image from a URL with timeout and status check.
+  Future<Response> _fetchImage(String url) async {
+    final Response response = await get(Uri.parse(url))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Image download failed: HTTP ${response.statusCode}');
+    }
+    return response;
   }
 
   Future<List<Object>> _parseDeltaElement(dom.Element element, TextStyle baseTextStyle) async {
@@ -657,11 +697,12 @@ class WidgetsHTMLDecoder {
     for (final dom.Node node in element.nodes) {
       // Not of type `Element` - convert to text and add to delta.
       if (node is! dom.Element) {
-        TextSpan textSpan = TextSpan(
-            text: node.text?.replaceAll(RegExp(r'\n+$'), '') ?? "",
-            style: style
-        );
-        result.add((textSpan, align));
+        // Collapse whitespace per HTML spec: replace runs of whitespace with a single space
+        final rawText = node.text ?? "";
+        final collapsed = rawText.replaceAll(RegExp(r'\s+'), ' ');
+        if (collapsed.isNotEmpty) {
+          result.add((TextSpan(text: collapsed, style: style), align));
+        }
         continue;
       }
 
@@ -675,6 +716,38 @@ class WidgetsHTMLDecoder {
       if (HTMLTags.specialElements.contains(node.localName)) {
         result.addAll(await _parseSpecialElements(node, baseTextStyle));
         continue;
+      }
+
+      // Handle anchor elements — wrap children in a clickable UrlLink
+      if (node.localName == HTMLTags.anchor) {
+        final href = node.attributes['href'];
+        final childItems = await _parseDeltaElement(node, baseTextStyle);
+        if (href != null && href.isNotEmpty) {
+          // Collect text spans into a RichText, then wrap in UrlLink
+          final spans = <TextSpan>[];
+          for (final item in childItems) {
+            if (item is (TextSpan, TextAlign?)) {
+              spans.add(item.$1);
+            } else if (item is Widget) {
+              // Flush any collected spans as a linked RichText
+              if (spans.isNotEmpty) {
+                result.add(UrlLink(
+                  destination: href,
+                  child: RichText(text: TextSpan(children: List.of(spans))),
+                ));
+                spans.clear();
+              }
+              result.add(item);
+            }
+          }
+          if (spans.isNotEmpty) {
+            result.add(UrlLink(
+              destination: href,
+              child: RichText(text: TextSpan(children: List.of(spans))),
+            ));
+          }
+          continue;
+        }
       }
 
       // No match for irregular elements so far.
@@ -693,11 +766,13 @@ class WidgetsHTMLDecoder {
     }
     final entries = cssString.split(';');
     for (final entry in entries) {
-      final tuples = entry.split(':');
-      if (tuples.length < 2) {
-        continue;
+      final colonIndex = entry.indexOf(':');
+      if (colonIndex < 0) continue;
+      final key = entry.substring(0, colonIndex).trim();
+      final value = entry.substring(colonIndex + 1).trim();
+      if (key.isNotEmpty) {
+        result[key] = value;
       }
-      result[tuples[0].trim()] = tuples[1].trim();
     }
     return result;
   }
@@ -711,9 +786,14 @@ class WidgetsHTMLDecoder {
     final styleString = htmlAttributes["style"];
     final cssMap = _cssStringToMap(styleString);
 
-    ///get font family
-    final fontFamily = cssMap["font-family"];
-    if (fontFamily != null) {
+    ///get font family — extract the first font name and strip quotes
+    final rawFontFamily = cssMap["font-family"];
+    final fontFamily = rawFontFamily
+        ?.split(',')
+        .first
+        .trim()
+        .replaceAll(RegExp(r'''['"]'''), '');
+    if (fontFamily != null && fontFamily.isNotEmpty) {
       final font = await fontResolver?.call(fontFamily, false, false);
       final fontBold = await fontResolver?.call(fontFamily, true, false);
       final fontItalic = await fontResolver?.call(fontFamily, false, true);
@@ -725,6 +805,17 @@ class WidgetsHTMLDecoder {
         fontItalic: fontItalic,
         fontBoldItalic: fontBoldItalic,
       );
+    }
+
+    ///get font size
+    final fontSizeStr = cssMap["font-size"];
+    if (fontSizeStr != null) {
+      // Strip unit suffixes and parse the numeric value
+      final numericStr = fontSizeStr.replaceAll(RegExp(r'[a-z%]+', caseSensitive: false), '').trim();
+      final fontSize = double.tryParse(numericStr);
+      if (fontSize != null) {
+        style = style.copyWith(fontSize: fontSize);
+      }
     }
 
     ///get font weight
@@ -754,26 +845,22 @@ class WidgetsHTMLDecoder {
 
     ///apply background color on text
     final backgroundColorStr = cssMap["background-color"];
-    final backgroundColor = backgroundColorStr == null
-        ? null
-        : isHex(backgroundColorStr)
-            ? ColorExtension.hexToPdfColor(backgroundColorStr)
-            : ColorExtension.tryFromRgbaString(backgroundColorStr);
-    if (backgroundColor != null) {
-      style = style.copyWith(
-        background: BoxDecoration(color: backgroundColor),
-      );
+    if (backgroundColorStr != null) {
+      final backgroundColor = tryParseCssColor(backgroundColorStr);
+      if (backgroundColor != null) {
+        style = style.copyWith(
+          background: BoxDecoration(color: backgroundColor),
+        );
+      }
     }
 
     ///apply text color
     final colorStr = cssMap["color"];
-    final color = colorStr == null
-        ? null
-        : isHex(colorStr)
-            ? ColorExtension.hexToPdfColor(colorStr)
-            : ColorExtension.tryFromRgbaString(colorStr);
-    if (color != null) {
-      style = style.copyWith(color: color);
+    if (colorStr != null) {
+      final color = tryParseCssColor(colorStr);
+      if (color != null) {
+        style = style.copyWith(color: color);
+      }
     }
 
     ///apply italic tag

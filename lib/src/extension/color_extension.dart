@@ -28,9 +28,9 @@ extension ColorExtension on PdfColor {
     return PdfColor.fromInt(hexOfRGBA(red, green, blue, opacity: alpha));
   }
 
-  // Convert PdfColor to an RGBA string format.
+  // Convert PdfColor to an RGBA string format (0-255 int values).
   String toRgbaString() {
-    return 'rgba($red, $green, $blue, $alpha)';
+    return 'rgba(${(red * 255).round()}, ${(green * 255).round()}, ${(blue * 255).round()}, $alpha)';
   }
 
   static PdfColor hexToPdfColor(String hexColor) {
@@ -73,4 +73,38 @@ bool isHex(String color) {
   final hexRegex =
       RegExp(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", caseSensitive: false);
   return hexRegex.hasMatch(color);
+}
+
+/// Map of CSS named colors to their PdfColor equivalents.
+const Map<String, PdfColor> _namedColors = {
+  'black': PdfColors.black,
+  'white': PdfColors.white,
+  'red': PdfColors.red,
+  'green': PdfColors.green,
+  'blue': PdfColors.blue,
+  'yellow': PdfColors.yellow,
+  'orange': PdfColors.orange,
+  'purple': PdfColors.purple,
+  'pink': PdfColors.pink,
+  'grey': PdfColors.grey,
+  'gray': PdfColors.grey,
+  'brown': PdfColors.brown,
+  'cyan': PdfColors.cyan,
+  'indigo': PdfColors.indigo,
+  'teal': PdfColors.teal,
+  'amber': PdfColors.amber,
+  'lime': PdfColors.lime,
+};
+
+/// Tries to parse a CSS color string in any supported format:
+/// hex (#RGB / #RRGGBB), rgb()/rgba(), or named color.
+PdfColor? tryParseCssColor(String colorStr) {
+  final trimmed = colorStr.trim().toLowerCase();
+  if (isHex(trimmed)) {
+    return ColorExtension.hexToPdfColor(trimmed);
+  }
+  if (isRgba(trimmed)) {
+    return ColorExtension.tryFromRgbaString(trimmed);
+  }
+  return _namedColors[trimmed];
 }
