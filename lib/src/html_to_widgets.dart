@@ -689,7 +689,12 @@ class WidgetsHTMLDecoder {
 
     var (align, style) = await _parseFormattingElement(element, baseTextStyle);
 
-    // This list holds only of of two types:
+    // Resolve href for anchor elements — used to annotate child TextSpans.
+    final String? href = element.localName == HTMLTags.anchor
+        ? element.attributes['href']
+        : null;
+
+    // This list holds only one of two types:
     // - (`TextSpan`, 'TextAlign?`) tuples
     // - `Widget`s.
     //
@@ -704,7 +709,10 @@ class WidgetsHTMLDecoder {
         final rawText = node.text ?? "";
         final collapsed = rawText.replaceAll(RegExp(r'\s+'), ' ');
         if (collapsed.isNotEmpty) {
-          result.add((TextSpan(text: collapsed, style: style), align));
+          final annotation = href != null && href.isNotEmpty
+              ? AnnotationUrl(href)
+              : null;
+          result.add((TextSpan(text: collapsed, style: style, annotation: annotation), align));
         }
         continue;
       }
@@ -721,41 +729,33 @@ class WidgetsHTMLDecoder {
         continue;
       }
 
-      // Handle anchor elements — wrap children in a clickable UrlLink
-      if (node.localName == HTMLTags.anchor) {
-        final href = node.attributes['href'];
-        final childItems = await _parseDeltaElement(node, baseTextStyle);
-        if (href != null && href.isNotEmpty) {
-          // Collect text spans into a RichText, then wrap in UrlLink
-          final spans = <TextSpan>[];
-          for (final item in childItems) {
-            if (item is (TextSpan, TextAlign?)) {
-              spans.add(item.$1);
-            } else if (item is Widget) {
-              // Flush any collected spans as a linked RichText
-              if (spans.isNotEmpty) {
-                result.add(UrlLink(
-                  destination: href,
-                  child: RichText(text: TextSpan(children: List.of(spans))),
-                ));
-                spans.clear();
-              }
-              result.add(item);
-            }
-          }
-          if (spans.isNotEmpty) {
-            result.add(UrlLink(
-              destination: href,
-              child: RichText(text: TextSpan(children: List.of(spans))),
-            ));
-          }
-          continue;
-        }
-      }
-
       // No match for irregular elements so far.
       // Parse the children of the currently handled node and add the result.
-      result.addAll(await _parseDeltaElement(node, baseTextStyle));
+      final childItems = await _parseDeltaElement(node, baseTextStyle);
+
+      // If we're inside an <a>, propagate the annotation to child TextSpans
+      if (href != null && href.isNotEmpty) {
+        for (final item in childItems) {
+          if (item is (TextSpan, TextAlign?)) {
+            final span = item.$1;
+            // Add AnnotationUrl if the span doesn't already have one
+            if (span.annotation == null) {
+              result.add((TextSpan(
+                text: span.text,
+                children: span.children,
+                style: span.style,
+                annotation: AnnotationUrl(href),
+              ), item.$2));
+            } else {
+              result.add(item);
+            }
+          } else {
+            result.add(item);
+          }
+        }
+      } else {
+        result.addAll(childItems);
+      }
     }
 
     return result;
