@@ -308,7 +308,7 @@ class WidgetsHTMLDecoder {
     }
 
     Widget result = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children
     );
 
@@ -383,7 +383,7 @@ class WidgetsHTMLDecoder {
             top: isPreviousHeader ? 0 : customStyles.headingTopSpacing,
             bottom: isNextHeader ? 0 : customStyles.headingBottomSpacing),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: innerWidgets,
         )
     );
@@ -393,7 +393,7 @@ class WidgetsHTMLDecoder {
   Future<Widget> _parseBlockQuoteElement(dom.Element element, TextStyle baseTextStyle) async {
 
     final child = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: await _parseComplexElement(element, baseTextStyle));
 
     return buildQuoteWidget(child, customStyles: customStyles);
@@ -511,7 +511,7 @@ class WidgetsHTMLDecoder {
     required bool nestedList,
   }) async {
     final child = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: await _parseComplexElement(element, baseTextStyle)
     );
 
@@ -558,14 +558,9 @@ class WidgetsHTMLDecoder {
     void subDeltaToResult() {
       if (subDelta.isEmpty) return;
       result.add(
-        // SizedBox expands the RichText widget to the full width of the
-        // parent. This way the text is able to be aligned properly.
-        SizedBox(
-          width: double.infinity,
-          child: RichText(
-            textAlign: currentAlignment,
-            text: TextSpan(children: List.of(subDelta)),
-          ),
+        RichText(
+          textAlign: currentAlignment,
+          text: TextSpan(children: List.of(subDelta)),
         )
       );
       subDelta.clear();
@@ -590,7 +585,7 @@ class WidgetsHTMLDecoder {
   /// Function to parse a paragraph element and return a widget
   Future<Widget> _parseParagraphElement(dom.Element element, TextStyle baseTextStyle) async {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: await _parseComplexElement(element, baseTextStyle),
     );
   }
