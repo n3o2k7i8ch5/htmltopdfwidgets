@@ -11,6 +11,7 @@ dependencies:
   html: ">=0.15.4 <1.0.0"
   http: ">=1.2.2 <2.0.0"
   printing: ">=5.9.1 <6.0.0"
+  vector_math: ">=2.1.0 <3.0.0"
 
   flutter:
     sdk: flutter
