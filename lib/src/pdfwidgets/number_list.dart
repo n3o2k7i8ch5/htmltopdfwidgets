@@ -1,41 +1,36 @@
 import '../../html_pdf_widgets.dart';
+import 'list_item_container.dart';
 
-class NumberListItemWidget extends StatelessWidget {
-  final Widget child;
-  final int index;
-  final HtmlTagStyle customStyles;
-  final bool withIndicator;
-  final TextStyle baseTextStyle;
+Widget NumberListItemWidget({
+  required Widget child,
+  required int index,
+  required HtmlTagStyle customStyles,
+  bool withIndicator = true,
+  required TextStyle baseTextStyle,
+}) {
+  final indicator = withIndicator
+      ? _NumberListIndicator(style: customStyles, index: index, baseTextStyle: baseTextStyle)
+      : SizedBox(width: customStyles.listItemIndicatorWidth);
 
-  NumberListItemWidget({
-    required this.child,
-    required this.index,
-    required this.customStyles,
-    this.withIndicator = true,
-    required this.baseTextStyle
-  });
-
-  @override
-  Widget build(Context context) {
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (withIndicator)
-            _NumberListIndicator(
-              style: customStyles,
-              index: index,
-              baseTextStyle: baseTextStyle
-            )
-          else
-            SizedBox(width: customStyles.listItemIndicatorWidth),
-          Flexible(child: child),
-        ],
-      ),
+  if (child is SpanningWidget) {
+    return ListItemContainer(
+      content: child,
+      indicator: indicator,
+      indicatorWidth: customStyles.listItemIndicatorWidth,
     );
   }
+
+  return Container(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        indicator,
+        Flexible(child: child),
+      ],
+    ),
+  );
 }
 
 class _NumberListIndicator extends StatelessWidget {

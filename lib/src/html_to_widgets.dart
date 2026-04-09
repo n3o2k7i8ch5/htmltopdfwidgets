@@ -515,36 +515,38 @@ class WidgetsHTMLDecoder {
     int? index,
     required bool nestedList,
   }) async {
-    final child = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: await _parseComplexElement(element, baseTextStyle)
-    );
+    final children = await _parseComplexElement(element, baseTextStyle);
 
-    /// Build a bullet list widget
-    if (listTag == HTMLTags.unorderedList) {
-      return [
-        BulletListItemWidget(
-            child: child,
-            customStyles: customStyles,
-            nestedList: nestedList,
-            withIndicator: withIndicator
-        )
-      ];
-
-      /// Build a numbered list widget
-    } else if (listTag == HTMLTags.orderedList) {
-      return [
-        NumberListItemWidget(
-            child: child,
-            index: index!,
-            customStyles: customStyles,
-            withIndicator: withIndicator,
-            baseTextStyle: baseTextStyle
-        )
-      ];
-    } else {
-      return [child];
+    if (children.isEmpty) {
+      final empty = SizedBox.shrink();
+      if (listTag == HTMLTags.unorderedList) {
+        return [BulletListItemWidget(child: empty, customStyles: customStyles, nestedList: nestedList, withIndicator: withIndicator)];
+      } else if (listTag == HTMLTags.orderedList) {
+        return [NumberListItemWidget(child: empty, index: index!, customStyles: customStyles, withIndicator: withIndicator, baseTextStyle: baseTextStyle)];
+      }
+      return [];
     }
+
+    final result = <Widget>[];
+
+    // First child gets the indicator (bullet/number)
+    if (listTag == HTMLTags.unorderedList) {
+      result.add(BulletListItemWidget(child: children.first, customStyles: customStyles, nestedList: nestedList, withIndicator: withIndicator));
+    } else if (listTag == HTMLTags.orderedList) {
+      result.add(NumberListItemWidget(child: children.first, index: index!, customStyles: customStyles, withIndicator: withIndicator, baseTextStyle: baseTextStyle));
+    } else {
+      result.add(children.first);
+    }
+
+    // Remaining children get just indentation (no indicator)
+    for (int i = 1; i < children.length; i++) {
+      result.add(Padding(
+        padding: EdgeInsets.only(left: customStyles.listItemIndicatorWidth),
+        child: children[i],
+      ));
+    }
+
+    return result;
   }
 
   List<Widget> _mergeDeltaSpans(List<(TextSpan, TextAlign?)> delta) {

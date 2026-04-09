@@ -8,18 +8,25 @@ import '../utils/app_assets.dart';
 class _QuoteContainerContext extends WidgetContext {
   WidgetContext? childContext;
   bool isFirstSegment;
+  bool contentRendered;
 
-  _QuoteContainerContext({this.childContext, this.isFirstSegment = true});
+  _QuoteContainerContext({
+    this.childContext,
+    this.isFirstSegment = true,
+    this.contentRendered = false,
+  });
 
   @override
   WidgetContext clone() => _QuoteContainerContext(
     childContext: childContext?.clone(),
     isFirstSegment: isFirstSegment,
+    contentRendered: contentRendered,
   );
 
   @override
   void apply(covariant _QuoteContainerContext other) {
     isFirstSegment = other.isFirstSegment;
+    contentRendered = other.contentRendered;
     if (childContext != null && other.childContext != null) {
       childContext!.apply(other.childContext!);
     } else {
@@ -89,6 +96,16 @@ class QuoteContainer extends Widget with SpanningWidget {
       BoxConstraints(maxWidth: contentMaxWidth, maxHeight: contentMaxHeight),
       parentUsesSize: parentUsesSize,
     );
+
+    _myContext.contentRendered = content.box!.height > 0;
+
+    // If no content fit, render nothing — let MultiPage push us to next page
+    if (!_myContext.contentRendered) {
+      box = PdfRect(0, 0, constraints.maxWidth, 0);
+      _icon = null;
+      _isLastSegment = false;
+      return;
+    }
 
     box = PdfRect(
       0, 0,
@@ -220,7 +237,9 @@ class QuoteContainer extends Widget with SpanningWidget {
   @override
   void restoreContext(covariant _QuoteContainerContext context) {
     _myContext.apply(context);
-    _myContext.isFirstSegment = false;
+    if (_myContext.contentRendered) {
+      _myContext.isFirstSegment = false;
+    }
     if (content.canSpan && _myContext.childContext != null) {
       content.restoreContext(_myContext.childContext!);
     }

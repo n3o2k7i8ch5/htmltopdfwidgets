@@ -1,37 +1,35 @@
 import '../../html_pdf_widgets.dart';
+import 'list_item_container.dart';
 
-class BulletListItemWidget extends StatelessWidget {
-  // Bullet list item widget with a bullet icon and content.
+Widget BulletListItemWidget({
+  required Widget child,
+  required HtmlTagStyle customStyles,
+  required bool nestedList,
+  bool withIndicator = true,
+}) {
+  final indicator = withIndicator
+      ? _BulletedListIndicator(style: customStyles, nestedList: nestedList)
+      : SizedBox(width: customStyles.listItemIndicatorWidth);
 
-  final Widget child;
-  final HtmlTagStyle customStyles;
-  final bool nestedList;
-  final bool withIndicator;
-
-  BulletListItemWidget({
-    required this.child,
-    required this.customStyles,
-    required this.nestedList,
-    this.withIndicator = true
-  });
-
-  @override
-  Widget build(Context context) {
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (withIndicator)
-            _BulletedListIndicator(style: customStyles, nestedList: nestedList)
-          else
-            SizedBox(width: customStyles.listItemIndicatorWidth),
-          Flexible(child: child),
-        ],
-      ),
+  if (child is SpanningWidget) {
+    return ListItemContainer(
+      content: child,
+      indicator: indicator,
+      indicatorWidth: customStyles.listItemIndicatorWidth,
     );
   }
+
+  return Container(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        indicator,
+        Flexible(child: child),
+      ],
+    ),
+  );
 }
 
 
