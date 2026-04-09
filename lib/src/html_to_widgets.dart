@@ -396,12 +396,14 @@ class WidgetsHTMLDecoder {
 
   /// Function to parse a block quote element and return a list of widgets
   Future<Widget> _parseBlockQuoteElement(dom.Element element, TextStyle baseTextStyle) async {
-
-    final child = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: await _parseComplexElement(element, baseTextStyle));
-
-    return buildQuoteWidget(child, customStyles: customStyles);
+    final children = await _parseComplexElement(element, baseTextStyle);
+    // Unwrap single-child Columns so QuoteContainer can pass maxHeight
+    // directly to RichText (enabling text spanning across pages).
+    final unwrapped = children.map((w) {
+      if (w is MultiChildWidget && w.children.length == 1) return w.children.first;
+      return w;
+    }).toList();
+    return buildQuoteWidget(unwrapped, customStyles: customStyles);
   }
 
   /// Function to parse an unordered list element and return a list of widgets
@@ -568,6 +570,7 @@ class WidgetsHTMLDecoder {
         RichText(
           textAlign: currentAlignment,
           text: TextSpan(children: List.of(subDelta)),
+          overflow: TextOverflow.span,
         )
       );
       subDelta.clear();
@@ -591,9 +594,19 @@ class WidgetsHTMLDecoder {
 
   /// Function to parse a paragraph element and return a widget
   Future<Widget> _parseParagraphElement(dom.Element element, TextStyle baseTextStyle) async {
+    final children = await _parseComplexElement(element, baseTextStyle);
+    // If single child, return directly — lets RichText span across pages.
+    // Wrapping in Column prevents spanning because Column doesn't pass maxHeight.
+    if (children.length == 1) {
+      final child = children.first;
+      // Wrap SpanningWidgets in _SafeSpan to catch context type mismatches
+      // caused by the pdf package leaking contexts between different widgets.
+      if (child is SpanningWidget) return _SafeSpan(child: child);
+      return child;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: await _parseComplexElement(element, baseTextStyle),
+      children: children,
     );
   }
 
@@ -909,5 +922,26 @@ class WidgetsHTMLDecoder {
       }
     }
     return style.copyWith(decoration: TextDecoration.combine(textdecorations));
+  }
+}
+
+/// Thin wrapper that shields a SpanningWidget from context type mismatches
+/// caused by the pdf package leaking contexts between consecutive widgets.
+class _SafeSpan extends SingleChildWidget {
+  _SafeSpan({required Widget child}) : super(child: child);
+
+  @override
+  void paint(Context context) {
+    super.paint(context);
+    paintChild(context);
+  }
+
+  @override
+  void restoreContext(WidgetContext context) {
+    try {
+      super.restoreContext(context);
+    } catch (_) {
+      // Foreign context type — ignore
+    }
   }
 }

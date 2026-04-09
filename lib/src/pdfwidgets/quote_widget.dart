@@ -5,39 +5,63 @@ import 'package:vector_math/vector_math_64.dart';
 import '../../html_pdf_widgets.dart';
 import '../utils/app_assets.dart';
 
-class _QuoteContainerContext extends WidgetContext {
-  WidgetContext? childContext;
+class _QuoteContainerContext extends FlexContext {
+  /// Post-layout output: the spanning child's context saved AFTER layout.
+  /// Used by restoreContext to derive the input for the next page.
+  WidgetContext? spanningChildContext;
+
+  /// Pre-layout input: the context to pass to child.restoreContext() at
+  /// the START of layout.  Set by [QuoteContainer.restoreContext] and
+  /// preserved in clone()/apply() so postProcess can replay the correct
+  /// child state for each page segment.
+  WidgetContext? spanningChildInputContext;
+
   bool isFirstSegment;
   bool contentRendered;
 
   _QuoteContainerContext({
-    this.childContext,
+    int firstChild = 0,
+    int lastChild = 0,
+    this.spanningChildContext,
+    this.spanningChildInputContext,
     this.isFirstSegment = true,
     this.contentRendered = false,
-  });
+  }) {
+    this.firstChild = firstChild;
+    this.lastChild = lastChild;
+  }
 
   @override
-  WidgetContext clone() => _QuoteContainerContext(
-    childContext: childContext?.clone(),
-    isFirstSegment: isFirstSegment,
-    contentRendered: contentRendered,
-  );
+  WidgetContext clone() {
+    final ctx = _QuoteContainerContext(
+      firstChild: firstChild,
+      lastChild: lastChild,
+      spanningChildContext: spanningChildContext?.clone(),
+      spanningChildInputContext: spanningChildInputContext?.clone(),
+      isFirstSegment: isFirstSegment,
+      contentRendered: contentRendered,
+    );
+    return ctx;
+  }
 
   @override
-  void apply(covariant _QuoteContainerContext other) {
-    isFirstSegment = other.isFirstSegment;
-    contentRendered = other.contentRendered;
-    if (childContext != null && other.childContext != null) {
-      childContext!.apply(other.childContext!);
-    } else {
-      childContext = other.childContext?.clone();
+  void apply(covariant FlexContext other) {
+    if (other is _QuoteContainerContext) {
+      firstChild = other.firstChild;
+      lastChild = other.lastChild;
+      spanningChildContext = other.spanningChildContext?.clone();
+      spanningChildInputContext = other.spanningChildInputContext?.clone();
+      isFirstSegment = other.isFirstSegment;
+      contentRendered = other.contentRendered;
     }
+    // If other is a plain FlexContext (pdf package leak), don't copy
+    // firstChild/lastChild — it would corrupt our progress tracking.
   }
 }
 
 class QuoteContainer extends Widget with SpanningWidget {
   QuoteContainer({
-    required this.content,
+    required this.children,
     required this.barColor,
     this.backgroundColor = PdfColors.grey100,
     this.barWidth = 3.0,
@@ -49,7 +73,7 @@ class QuoteContainer extends Widget with SpanningWidget {
     this.iconSvg,
   });
 
-  final SpanningWidget content;
+  final List<Widget> children;
   final PdfColor barColor;
   final PdfColor backgroundColor;
   final double barWidth;
@@ -64,22 +88,24 @@ class QuoteContainer extends Widget with SpanningWidget {
   bool _isLastSegment = true;
   final _QuoteContainerContext _myContext = _QuoteContainerContext();
 
+  /// Stores the initial (pre-layout) context of each spanning child,
+  /// keyed by child index.  Used by postProcess to reset a child to
+  /// its pristine state when no spanningChildInputContext is available.
+  final Map<int, WidgetContext> _initialChildContexts = {};
+
   bool get _isFirstSegment => _myContext.isFirstSegment;
 
   double get _iconAreaWidth => iconSvg != null ? iconSize + iconGap : 0;
   double get _contentLeft => barWidth + padding.left + _iconAreaWidth;
 
   @override
-  bool get canSpan => content.canSpan;
+  bool get canSpan => true;
 
   @override
-  bool get hasMoreWidgets {
-    final ctx = content.saveContext();
-    if (ctx is FlexContext && content is MultiChildWidget) {
-      return ctx.lastChild < (content as MultiChildWidget).children.length;
-    }
-    return content.hasMoreWidgets;
-  }
+  bool get hasMoreWidgets =>
+      _myContext.lastChild < children.length ||
+      _myContext.spanningChildContext != null ||
+      !_myContext.contentRendered;
 
   @override
   void layout(
@@ -89,17 +115,76 @@ class QuoteContainer extends Widget with SpanningWidget {
   }) {
     final topPad = _isFirstSegment ? padding.top : 0.0;
     final contentMaxWidth = math.max(0.0, constraints.maxWidth - _contentLeft - padding.right);
-    final contentMaxHeight = math.max(0.0, constraints.maxHeight - topPad - padding.bottom);
+    var remainingHeight = math.max(0.0, constraints.maxHeight - topPad - padding.bottom);
 
-    content.layout(
-      context,
-      BoxConstraints(maxWidth: contentMaxWidth, maxHeight: contentMaxHeight),
-      parentUsesSize: parentUsesSize,
-    );
+    var contentHeight = 0.0;
+    // If firstChild is out of range (context from a different widget), full reset
+    if (_myContext.firstChild > children.length) {
+      _resetContext();
+    }
+    int idx = _myContext.firstChild;
+    // spanningChildInputContext holds the pre-layout context for the
+    // spanning child on continuation pages.  It is set by restoreContext()
+    // and preserved in clone()/apply() so postProcess can replay it.
+    // We read it here but do NOT clear it — the clone taken by MultiPage
+    // after layout must still contain it.
+    final savedSpanningContext = _myContext.spanningChildInputContext;
+    _myContext.spanningChildContext = null;
 
-    _myContext.contentRendered = content.box!.height > 0;
+    while (idx < children.length && remainingHeight > 0) {
+      final child = children[idx];
 
-    // If no content fit, render nothing — let MultiPage push us to next page
+      if (child is SpanningWidget && child.canSpan) {
+        if (savedSpanningContext != null && idx == _myContext.firstChild) {
+          // Restore spanning child context from previous page
+          try {
+            child.restoreContext(savedSpanningContext);
+          } catch (_) {}
+        } else if (_initialChildContexts.containsKey(idx)) {
+          // Reset child to pristine state — needed for postProcess replay
+          // where a prior generate/postProcess iteration left dirty state.
+          try {
+            child.applyContext(_initialChildContexts[idx]!);
+          } catch (_) {}
+        }
+      }
+
+      // Capture the child's initial (pre-layout) context on first encounter.
+      // This allows postProcess to reset the child to its pristine state.
+      if (child is SpanningWidget && child.canSpan && !_initialChildContexts.containsKey(idx)) {
+        _initialChildContexts[idx] = child.cloneContext();
+      }
+
+      // Layout child WITH maxHeight so spannable children know their limit
+      final childMaxHeight = remainingHeight;
+      child.layout(
+        context,
+        BoxConstraints(maxWidth: contentMaxWidth, maxHeight: childMaxHeight),
+      );
+
+      final childH = child.box!.height;
+
+      // If this child doesn't fit and we already have content, stop before it.
+      // If it's the first child, include it anyway (can't skip or nothing renders).
+      if (childH > childMaxHeight && contentHeight > 0) {
+        break;
+      }
+
+      contentHeight += childH;
+      remainingHeight -= childH;
+      idx++;
+
+      // If child filled all the space it was given, it likely has more to render
+      if (child is SpanningWidget && child.canSpan && childH >= childMaxHeight - 0.5) {
+        _myContext.spanningChildContext = child.saveContext();
+        break;
+      }
+    }
+
+    _myContext.lastChild = idx;
+    _myContext.contentRendered = contentHeight > 0;
+
+    // If nothing fit, render zero-height — let MultiPage push to next page
     if (!_myContext.contentRendered) {
       box = PdfRect(0, 0, constraints.maxWidth, 0);
       _icon = null;
@@ -107,10 +192,18 @@ class QuoteContainer extends Widget with SpanningWidget {
       return;
     }
 
+    // Position children top-to-bottom in PDF coordinates (y from bottom)
+    var y = contentHeight;
+    for (int i = _myContext.firstChild; i < _myContext.lastChild; i++) {
+      final child = children[i];
+      y -= child.box!.height;
+      child.box = PdfRect(0, y, child.box!.width, child.box!.height);
+    }
+
     box = PdfRect(
       0, 0,
       constraints.maxWidth,
-      content.box!.height + topPad + padding.bottom,
+      contentHeight + topPad + padding.bottom,
     );
 
     if (iconSvg != null && _isFirstSegment) {
@@ -216,13 +309,15 @@ class QuoteContainer extends Widget with SpanningWidget {
       context.canvas.restoreContext();
     }
 
-    // Content
+    // Content children
     final contentMat = Matrix4.identity();
     contentMat.translateByDouble(_contentLeft, padding.bottom, 0, 1);
     context.canvas
       ..saveContext()
       ..setTransform(contentMat);
-    content.paint(context);
+    for (int i = _myContext.firstChild; i < _myContext.lastChild; i++) {
+      children[i].paint(context);
+    }
     context.canvas.restoreContext();
 
     context.canvas.restoreContext();
@@ -230,23 +325,41 @@ class QuoteContainer extends Widget with SpanningWidget {
 
   @override
   WidgetContext saveContext() {
-    _myContext.childContext = content.canSpan ? content.saveContext() : null;
     return _myContext;
   }
 
+  void _resetContext() {
+    _myContext.firstChild = 0;
+    _myContext.lastChild = 0;
+    _myContext.spanningChildContext = null;
+    _myContext.spanningChildInputContext = null;
+    _myContext.isFirstSegment = true;
+    _myContext.contentRendered = false;
+  }
+
   @override
-  void restoreContext(covariant _QuoteContainerContext context) {
+  void restoreContext(FlexContext context) {
     _myContext.apply(context);
-    if (_myContext.contentRendered) {
-      _myContext.isFirstSegment = false;
-    }
-    if (content.canSpan && _myContext.childContext != null) {
-      content.restoreContext(_myContext.childContext!);
+    if (context is _QuoteContainerContext && _myContext.lastChild <= children.length) {
+      _myContext.firstChild = _myContext.lastChild;
+      if (_myContext.spanningChildContext != null) {
+        _myContext.firstChild = math.max(0, _myContext.firstChild - 1);
+        // Derive the INPUT context for the next layout pass:
+        // clone the post-layout output so the child will be restored
+        // to start from where the previous page left off.
+        _myContext.spanningChildInputContext =
+            _myContext.spanningChildContext!.clone();
+      }
+      if (_myContext.contentRendered) {
+        _myContext.isFirstSegment = false;
+      }
+    } else {
+      _resetContext();
     }
   }
 }
 
-Widget buildQuoteWidget(Widget child, {required HtmlTagStyle customStyles}) {
+Widget buildQuoteWidget(List<Widget> children, {required HtmlTagStyle customStyles}) {
   final quoteColor = customStyles.quoteBarColor ?? PdfColors.grey600;
   return Padding(
     padding: EdgeInsets.symmetric(vertical: customStyles.blockSpacing),
@@ -254,7 +367,7 @@ Widget buildQuoteWidget(Widget child, {required HtmlTagStyle customStyles}) {
       barColor: quoteColor,
       borderRadius: customStyles.borderRadius,
       iconSvg: AppAssets.quoteIcon,
-      content: child as SpanningWidget,
+      children: children,
     ),
   );
 }

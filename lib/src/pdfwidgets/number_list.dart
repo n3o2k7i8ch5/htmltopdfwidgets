@@ -1,36 +1,53 @@
 import '../../html_pdf_widgets.dart';
 import 'list_item_container.dart';
 
-Widget NumberListItemWidget({
-  required Widget child,
-  required int index,
-  required HtmlTagStyle customStyles,
-  bool withIndicator = true,
-  required TextStyle baseTextStyle,
-}) {
-  final indicator = withIndicator
-      ? _NumberListIndicator(style: customStyles, index: index, baseTextStyle: baseTextStyle)
-      : SizedBox(width: customStyles.listItemIndicatorWidth);
+class NumberListItemWidget extends StatelessWidget {
+  final Widget child;
+  final int index;
+  final HtmlTagStyle customStyles;
+  final bool withIndicator;
+  final TextStyle baseTextStyle;
 
-  if (child is SpanningWidget) {
-    return ListItemContainer(
-      content: child,
-      indicator: indicator,
-      indicatorWidth: customStyles.listItemIndicatorWidth,
+  NumberListItemWidget({
+    required this.child,
+    required this.index,
+    required this.customStyles,
+    this.withIndicator = true,
+    required this.baseTextStyle
+  });
+
+  @override
+  Widget build(Context context) {
+    final indicator = withIndicator
+        ? _NumberListIndicator(style: customStyles, index: index, baseTextStyle: baseTextStyle)
+        : SizedBox(width: customStyles.listItemIndicatorWidth);
+
+    // Unwrap single-child Column to get the spannable RichText directly
+    Widget effectiveChild = child;
+    if (child is MultiChildWidget && (child as MultiChildWidget).children.length == 1) {
+      effectiveChild = (child as MultiChildWidget).children.first;
+    }
+
+    if (effectiveChild is SpanningWidget && effectiveChild.canSpan) {
+      return ListItemContainer(
+        content: effectiveChild,
+        indicator: indicator,
+        indicatorWidth: customStyles.listItemIndicatorWidth,
+      );
+    }
+
+    return Container(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          indicator,
+          Flexible(child: child),
+        ],
+      ),
     );
   }
-
-  return Container(
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        indicator,
-        Flexible(child: child),
-      ],
-    ),
-  );
 }
 
 class _NumberListIndicator extends StatelessWidget {

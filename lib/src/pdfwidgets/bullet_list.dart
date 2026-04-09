@@ -1,35 +1,51 @@
 import '../../html_pdf_widgets.dart';
 import 'list_item_container.dart';
 
-Widget BulletListItemWidget({
-  required Widget child,
-  required HtmlTagStyle customStyles,
-  required bool nestedList,
-  bool withIndicator = true,
-}) {
-  final indicator = withIndicator
-      ? _BulletedListIndicator(style: customStyles, nestedList: nestedList)
-      : SizedBox(width: customStyles.listItemIndicatorWidth);
+class BulletListItemWidget extends StatelessWidget {
+  final Widget child;
+  final HtmlTagStyle customStyles;
+  final bool nestedList;
+  final bool withIndicator;
 
-  if (child is SpanningWidget) {
-    return ListItemContainer(
-      content: child,
-      indicator: indicator,
-      indicatorWidth: customStyles.listItemIndicatorWidth,
+  BulletListItemWidget({
+    required this.child,
+    required this.customStyles,
+    required this.nestedList,
+    this.withIndicator = true
+  });
+
+  @override
+  Widget build(Context context) {
+    final indicator = withIndicator
+        ? _BulletedListIndicator(style: customStyles, nestedList: nestedList)
+        : SizedBox(width: customStyles.listItemIndicatorWidth);
+
+    // Unwrap single-child Column to get the spannable RichText directly
+    Widget effectiveChild = child;
+    if (child is MultiChildWidget && (child as MultiChildWidget).children.length == 1) {
+      effectiveChild = (child as MultiChildWidget).children.first;
+    }
+
+    if (effectiveChild is SpanningWidget && effectiveChild.canSpan) {
+      return ListItemContainer(
+        content: effectiveChild,
+        indicator: indicator,
+        indicatorWidth: customStyles.listItemIndicatorWidth,
+      );
+    }
+
+    return Container(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          indicator,
+          Flexible(child: child),
+        ],
+      ),
     );
   }
-
-  return Container(
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        indicator,
-        Flexible(child: child),
-      ],
-    ),
-  );
 }
 
 
