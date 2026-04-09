@@ -20,30 +20,10 @@ class BulletListItemWidget extends StatelessWidget {
         ? _BulletedListIndicator(style: customStyles, nestedList: nestedList)
         : SizedBox(width: customStyles.listItemIndicatorWidth);
 
-    // Unwrap single-child Column to get the spannable RichText directly
-    Widget effectiveChild = child;
-    if (child is MultiChildWidget && (child as MultiChildWidget).children.length == 1) {
-      effectiveChild = (child as MultiChildWidget).children.first;
-    }
-
-    if (effectiveChild is SpanningWidget && effectiveChild.canSpan) {
-      return ListItemContainer(
-        content: effectiveChild,
-        indicator: indicator,
-        indicatorWidth: customStyles.listItemIndicatorWidth,
-      );
-    }
-
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          indicator,
-          Flexible(child: child),
-        ],
-      ),
+    return buildListItem(
+      child: child,
+      indicator: indicator,
+      indicatorWidth: customStyles.listItemIndicatorWidth,
     );
   }
 }

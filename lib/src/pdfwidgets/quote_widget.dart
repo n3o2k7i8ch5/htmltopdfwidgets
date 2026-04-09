@@ -85,6 +85,8 @@ class QuoteContainer extends Widget with SpanningWidget {
   final String? iconSvg;
 
   Widget? _icon;
+  /// Set during layout(), survives applyContext() in postProcess paint pass
+  /// because applyContext only modifies _myContext fields, not this field.
   bool _isLastSegment = true;
   final _QuoteContainerContext _myContext = _QuoteContainerContext();
 
@@ -105,7 +107,7 @@ class QuoteContainer extends Widget with SpanningWidget {
   bool get hasMoreWidgets =>
       _myContext.lastChild < children.length ||
       _myContext.spanningChildContext != null ||
-      !_myContext.contentRendered;
+      !_myContext.contentRendered; // keeps spanning alive after 0-height segment
 
   @override
   void layout(
@@ -184,8 +186,14 @@ class QuoteContainer extends Widget with SpanningWidget {
     _myContext.lastChild = idx;
     _myContext.contentRendered = contentHeight > 0;
 
-    // If nothing fit, render zero-height — let MultiPage push to next page
-    if (!_myContext.contentRendered) {
+    // If nothing fit, or too little to be meaningful (less than icon height),
+    // render zero-height — let MultiPage push to next page.
+    final hasMore = idx < children.length || _myContext.spanningChildContext != null;
+    if (!_myContext.contentRendered || (contentHeight < iconSize && hasMore)) {
+      _myContext.contentRendered = false;
+      _myContext.lastChild = _myContext.firstChild;
+      _myContext.spanningChildContext = null;
+      _myContext.spanningChildInputContext = null;
       box = PdfRect(0, 0, constraints.maxWidth, 0);
       _icon = null;
       _isLastSegment = false;
